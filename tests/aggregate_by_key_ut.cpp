@@ -66,3 +66,21 @@ TEST(AggregateByKeyTest, AggregatingWithSeveralOutputsForEachKey) {
         )
     );
 }
+
+
+TEST(AggregateByKeyTest, CountsWords) {
+    std::vector<std::string> input = {"apple", "banana", "apple", "orange", "banana", "banana"};
+    auto result = AsDataFlow(input)
+        | AggregateByKey(
+            std::size_t{0},
+            [](const std::string&, std::size_t& count) { ++count; },
+            [](const std::string& word) { return word; }
+        )
+        | AsVector();
+    
+    ASSERT_THAT(result, ::testing::ElementsAre(
+        std::make_pair("apple", 2),
+        std::make_pair("banana", 3),
+        std::make_pair("orange", 1)
+    ));
+}
