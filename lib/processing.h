@@ -12,6 +12,8 @@
 #include <expected>
 #include <utility>
 #include <format>
+#include <algorithm>
+
 
 class Dir {
 private:
@@ -23,35 +25,41 @@ public:
     class Iterator {
     private:
         std::variant<std::filesystem::directory_iterator, std::filesystem::recursive_directory_iterator> current_;
+        std::filesystem::path path_;
+
+        std::variant<std::filesystem::directory_iterator, std::filesystem::recursive_directory_iterator> end_;
 
     public:
         Iterator(bool recursive, const std::filesystem::path &path) {
             if (recursive) {
                 current_.emplace<1>(path);
+                end_.emplace<1>();
             } else {
                 current_.emplace<0>(path);
+                end_.emplace<0>();
             }
+            path_ = std::visit([](auto &it) {return it->path();}, current_);
         }
 
         Iterator(bool recursive) {
             if (recursive) {
                 current_.emplace<1>();
+                end_.emplace<1>();
             } else {
                 current_.emplace<0>();
+                end_.emplace<0>();
             }
         }
 
         Iterator &operator++() {
-            std::visit([&](auto &it) { ++it; }, current_);
+            std::visit([](auto &it) { ++it; }, current_);
+            if (current_== end_) return *this;
+            path_ = std::visit([](auto &it) {return it->path();}, current_);
             return *this;
         }
 
-        auto &operator*() const {
-            return std::visit([&](auto &it) -> std::filesystem::path &{
-                static std::filesystem::path p;
-                p = it->path();
-                return p;
-            }, current_);
+        auto &operator*() {
+            return path_;
         }
 
         bool operator!=(const Iterator &other) const {
@@ -59,7 +67,7 @@ public:
         }
 
         auto path() const {
-            return std::visit([&](auto &&it) { return it->path(); }, current_);
+            return std::visit([](auto &it) { return it->path(); }, current_);
         }
     };
 
